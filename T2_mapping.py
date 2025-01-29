@@ -54,7 +54,7 @@ else:
             try:
                 # Establecer parámetros iniciales
                 S0_init = np.max(signal_values)
-                T2_init = 80  # Valor de T2 inicial (ajústalo según tus datos)
+                T2_init = 1000  # Valor de T2 inicial (ajústalo según tus datos)
 
                 # Establecer límites para el ajuste
                 popt, _ = curve_fit(exp_decay, TE_values, signal_values, p0=(S0_init, T2_init), bounds=([0, 10], [np.inf, 3000]))
@@ -81,21 +81,26 @@ else:
         min_T2, max_T2 = np.nanmin(T2_map), np.nanmax(T2_map)
         print(f"Rango de T2: {min_T2} - {max_T2}")
 
-        # Ajuste de contraste: usar percentiles para evitar valores atípicos
-        percentile_1, percentile_99 = np.percentile(T2_map, (1, 99))
-        T2_map_stretched = np.clip(T2_map, percentile_1, percentile_99)
-        T2_map_stretched = (T2_map_stretched - percentile_1) / (percentile_99 - percentile_1) * 255
+        # Normalizar el mapa T2 para que los valores estén entre 0 y 255 (escala de grises)
+        T2_map_normalized = np.clip(T2_map, 0, 3000)  # Limitar a un rango de valores razonables
+        T2_map_normalized = (T2_map_normalized - np.min(T2_map_normalized)) / (np.max(T2_map_normalized) - np.min(T2_map_normalized)) * 255
 
-        # Escala logarítmica
-        T2_map_log = np.log1p(T2_map)  # log(x+1) para evitar valores cero
-        T2_map_log_normalized = np.clip(T2_map_log, 0, np.log(3000+1))  # Limitar el rango para que sea visualizable
-        T2_map_log_normalized = (T2_map_log_normalized - np.min(T2_map_log_normalized)) / (np.max(T2_map_log_normalized) - np.min(T2_map_log_normalized)) * 255
-
-        # Mostrar el mapa T2 ajustado en escala de grises
-        plt.imshow(T2_map_log_normalized, cmap='gray', interpolation='nearest')
+        # Mostrar el mapa T2 en escala de grises
+        plt.imshow(T2_map_normalized, cmap='gray', interpolation='nearest')
         plt.colorbar(label='Tiempo T2 (ms)')
         plt.title('Mapa T2 (Escala de grises)')
 
         # Imprimir el valor medio del mapa T2 para verificar
         print(f"Valor medio del mapa T2: {np.nanmean(T2_map)}")
+
+        # Crear un histograma de los valores T2
+        plt.figure()
+        plt.hist(T2_map.flatten(), bins=100, color='gray', edgecolor='black')
+        plt.title('Distribución de valores T2')
+        plt.xlabel('T2 (ms)')
+        plt.ylabel('Frecuencia')
         plt.show()
+
+        # Mostrar el mapa T2
+        plt.show()
+ 

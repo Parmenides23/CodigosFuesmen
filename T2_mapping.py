@@ -51,19 +51,29 @@ else:
         for j in range(images_array.shape[2]):  # Iterar sobre filas
             signal_values = images_array[:, i, j]  # Valores de señal para el píxel (i, j)
 
+            # Filtrar valores de señal muy bajos para evitar ruido
+            if np.max(signal_values) < 10:  # Umbral ajustable
+                T2_map[i, j] = np.nan
+                continue
+
             try:
                 # Establecer parámetros iniciales
                 S0_init = np.max(signal_values)
-                T2_init = 1000  # Valor de T2 inicial (ajústalo según tus datos)
+                T2_init = 40  # Valor de T2 inicial ajustado para hígado
 
                 # Establecer límites para el ajuste
-                popt, _ = curve_fit(exp_decay, TE_values, signal_values, p0=(S0_init, T2_init), bounds=([0, 10], [np.inf, 3000]))
+                popt, _ = curve_fit(
+                    exp_decay,
+                    TE_values,
+                    signal_values,
+                    p0=(S0_init, T2_init),
+                    bounds=([0, 10], [np.inf, 200])
+                )
 
                 # Almacenar el valor de T2 ajustado
                 T2_map[i, j] = popt[1]  # El segundo parámetro es T2
             except Exception as e:
                 T2_map[i, j] = np.nan  # Si el ajuste falla, asignar NaN
-                print(f"Error en el ajuste para el píxel ({i}, {j}): {e}")
 
             # Actualizar el progreso cada vez que se procesan un 10% de los píxeles
             processed_pixels += 1
@@ -79,28 +89,29 @@ else:
 
         # Verificar el rango de valores de T2
         min_T2, max_T2 = np.nanmin(T2_map), np.nanmax(T2_map)
-        print(f"Rango de T2: {min_T2} - {max_T2}")
+        print(f"Rango de T2: {min_T2:.2f} - {max_T2:.2f} ms")
 
         # Normalizar el mapa T2 para que los valores estén entre 0 y 255 (escala de grises)
-        T2_map_normalized = np.clip(T2_map, 0, 3000)  # Limitar a un rango de valores razonables
-        T2_map_normalized = (T2_map_normalized - np.min(T2_map_normalized)) / (np.max(T2_map_normalized) - np.min(T2_map_normalized)) * 255
+        T2_map_normalized = np.clip(T2_map, 10, 100)  # Limitar a un rango razonable para hígado
+        T2_map_normalized = (
+            (T2_map_normalized - np.nanmin(T2_map_normalized)) /
+            (np.nanmax(T2_map_normalized) - np.nanmin(T2_map_normalized)) * 255
+        )
 
         # Mostrar el mapa T2 en escala de grises
+        plt.figure(figsize=(10, 5))
+
+        plt.subplot(1, 2, 1)
         plt.imshow(T2_map_normalized, cmap='gray', interpolation='nearest')
         plt.colorbar(label='Tiempo T2 (ms)')
         plt.title('Mapa T2 (Escala de grises)')
 
-        # Imprimir el valor medio del mapa T2 para verificar
-        print(f"Valor medio del mapa T2: {np.nanmean(T2_map)}")
-
-        # Crear un histograma de los valores T2
-        plt.figure()
-        plt.hist(T2_map.flatten(), bins=100, color='gray', edgecolor='black')
-        plt.title('Distribución de valores T2')
-        plt.xlabel('T2 (ms)')
+        # Mostrar el histograma de valores T2
+        plt.subplot(1, 2, 2)
+        plt.hist(T2_map.flatten(), bins=100, color='blue', alpha=0.7)
+        plt.title('Histograma de valores T2')
+        plt.xlabel('Tiempo T2 (ms)')
         plt.ylabel('Frecuencia')
-        plt.show()
 
-        # Mostrar el mapa T2
+        plt.tight_layout()
         plt.show()
- 
